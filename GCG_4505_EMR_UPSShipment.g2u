@@ -1,0 +1,197 @@
+Program.Sub.ScreenSU.Start
+Gui.F_Emails..create
+Gui.F_Emails..caption("Shipping Information")
+Gui.F_Emails..size(4365,2505)
+Gui.F_Emails..position(0,0)
+Gui.F_Emails..event(UnLoad,unload)
+Gui.F_Emails..forecolor(0)
+Gui.F_Emails..BackColor(-2147483633)
+Gui.F_Emails..mousepointer(0)
+Gui.F_Emails..MinX(0)
+Gui.F_Emails..MinY(0)
+Gui.F_Emails.frmMailIDs.create(frame)
+Gui.F_Emails.frmMailIDs.caption("Frame")
+Gui.F_Emails.frmMailIDs.size(3975,1155)
+Gui.F_Emails.frmMailIDs.position(120,225)
+Gui.F_Emails.frmMailIDs.borderstyle(0)
+Gui.F_Emails.lblSender.create(label,"Sender's Email",True,1935,255,1,0,15,True,0,Arial,8,-2147483633,0)
+Gui.F_Emails.lblSender.parent("frmMailIDs")
+Gui.F_Emails.txtSender.create(textbox,"sales@LTFTechnology.com",True,3795,300,0,0,210,True,0,Arial,8,-2147483643,1)
+Gui.F_Emails.txtSender.parent("frmMailIDs")
+Gui.F_Emails.txtSender.Locked(True)
+Gui.F_Emails.lblRecipients.create(label,"Recipient's Email",True,1935,255,1,0,600,True,0,Arial,8,-2147483633,0)
+Gui.F_Emails.lblRecipients.parent("frmMailIDs")
+Gui.F_Emails.txtRecipients.create(textbox,"",True,3795,300,0,0,795,True,0,Arial,8,-2147483643,1)
+Gui.F_Emails.txtRecipients.parent("frmMailIDs")
+Gui.F_Emails.cmdSend.create(button)
+Gui.F_Emails.cmdSend.caption("Send")
+Gui.F_Emails.cmdSend.size(1005,375)
+Gui.F_Emails.cmdSend.position(120,1470)
+Gui.F_Emails.cmdSend.event(Click,cmdsend_click)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+V.Global.sRecipientEmails.Declare(String)
+V.Global.bFound.Declare(Boolean,False)
+V.Global.sShipVia.Declare(String)
+V.Global.sCustomerNumber.Declare(String)
+V.Global.sShipDate.Declare(String)
+V.Global.sTrackingNo.Declare(String)
+V.Global.sCustomerName.Declare(String)
+V.Global.sOrderNumber.Declare(string)
+V.Global.sCustomerPO.Declare(String)
+V.Global.sPackingList.Declare(String)
+V.Global.sWaybillNumber.Declare(string)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.Try
+	'Quote 3236
+	'Customer EMR Corporation
+	
+	'If not called from Presave hook, end the process
+	F.Intrinsic.Control.If(V.Caller.Hook,<>,28530)
+		F.Intrinsic.Control.End	
+	F.Intrinsic.Control.EndIf
+	
+	F.ODBC.Connection!con.OpenCompanyConnection
+	
+	F.Intrinsic.Control.CallSub(SetGlobalVariables)
+	
+	F.Intrinsic.Control.CallSub(GetDefaultEmailAddress)	
+	Gui.F_Emails.txtRecipients.Text(V.Args.EmailAddress)
+	
+	Gui.F_Emails..Show
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError, "Sub", V.Ambient.CurrentSubroutine, "Error", V.Ambient.ErrorNumber, "ErrorDescription", V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+'Sets the global variables for the program using values from passed variables
+Program.Sub.SetGlobalVariables.Start
+F.Intrinsic.Control.Try
+	V.Global.sCustomerNumber.Set(V.Passed.000204)
+	V.Global.sShipDate.Set(V.Passed.000206)
+	V.Global.sTrackingNo.Set(V.Passed.000138)
+	V.Global.sShipVia.Set(V.Passed.000180)
+	V.Global.sCustomerName.Set(V.Passed.000112)
+	V.Global.sCustomerPO.Set(V.Passed.000328)
+	V.Global.sOrderNumber.Set(V.Passed.FIRST-ORDER)
+	V.Global.sWaybillNumber.Set(V.Passed.000178)
+	V.Global.sPackingList.Set(V.Passed.000168)
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError, "Sub", V.Ambient.CurrentSubroutine, "Error", V.Ambient.ErrorNumber, "ErrorDescription", V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.SetGlobalVariables.End
+
+'Returns the default email address to send to as "EmailAddress"
+Program.Sub.GetDefaultEmailAddress.Start
+F.Intrinsic.Control.Try
+	V.Local.sSQL.Declare(String)
+	V.Local.sDefaultEmail.Declare(String)
+	
+	F.Intrinsic.String.Build("SELECT Contact_Email FROM Order_Bill_To WHERE Order_No = '{0}' AND Record_Type = 'B'",V.Global.sOrderNumber,V.Local.sSql)
+	F.ODBC.Connection!con.OpenLocalRecordsetRO("rstEmail",V.Local.sSql)
+	
+	F.Intrinsic.Control.If(V.ODBC.con!rstEmail.EOF,=,False)
+		V.Local.sDefaultEmail.Set(V.ODBC.con!rstEmail.FieldValTrim!CONTACT_EMAIL)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.Local.sDefaultEmail.Trim,=,"")
+		'If email isn't found in Order_Bill_To we fall back on V_Customer_Sales for a default email
+		F.Intrinsic.String.Build("SELECT Email FROM V_Customer_Sales WHERE Customer = '{0}'",V.Global.sCustomerNumber.Trim,V.Local.sSql)
+		F.ODBC.Connection!con.OpenLocalRecordsetRO("rstEmail2",V.Local.sSql)
+		
+		F.Intrinsic.Control.If(V.ODBC.con!rstEmail2.EOF,=,False)
+			V.Local.sDefaultEmail.Set(V.ODBC.con!rstEmail2.FieldValTrim!EMAIL)
+		F.Intrinsic.Control.EndIf		
+		F.ODBC.con!rstEmail2.Close
+		
+	F.Intrinsic.Control.EndIf
+	F.ODBC.con!rstEmail.Close
+	
+	F.Intrinsic.Variable.AddRV("EmailAddress",V.Local.sDefaultEmail)
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError, "Sub", V.Ambient.CurrentSubroutine, "Error", V.Ambient.ErrorNumber, "ErrorDescription", V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.GetDefaultEmailAddress.End
+
+Program.Sub.cmdsend_click.Start
+F.Intrinsic.Control.Try
+	V.Local.sSubject.Declare(String)
+	V.Local.sBody.Declare(String)
+	V.Local.sSender.Declare(String)
+	V.Local.sRecipientEmails.Declare(String)
+	V.Local.iCurrentEmail.Declare(String)
+	V.Local.iUserID.Declare(Long)
+	
+	V.Local.sSender.Set("sales@LTFTechnology.com*!*LTF")	
+	F.Intrinsic.Control.If(V.Global.sTrackingNo.Trim,=,"")
+		V.Global.sTrackingNo.Set("Tracking information will be provided upon invoicing")		
+	F.Intrinsic.Control.EndIf	
+	
+	F.Intrinsic.String.Build("Customer Name: {1}{0}Customer PO: {2}{0}LTF Sales Order #: {3}{0}Packing List #: {4}{0}Tracking Details (Shipped Via: {5}, Tracking #: {6}, Waybill #: {7}){0}Shipped Date: {8}",V.Ambient.NewLine,V.Global.sCustomerName,V.Global.sCustomerPO,V.Global.sOrderNumber,V.Global.sPackingList,V.Global.sShipVia,V.Global.sTrackingNo,V.Global.sWaybillNumber,V.Global.sShipDate,V.Local.sBody)
+	F.Intrinsic.String.Build("Shipment Tracking Information for {0}",V.Global.sCustomerName,V.Local.sSubject)
+	F.Global.Security.GetUserId(V.Caller.User,V.Caller.CompanyCode,V.Local.iUserID)
+	
+	
+	V.Local.sRecipientEmails.Set(V.Screen.F_Emails!txtRecipients.Text.Trim)
+	
+	F.Intrinsic.String.Split(V.Local.sRecipientEmails,",",V.Local.sRecipientEmails)
+	
+	F.Intrinsic.Control.For(V.Local.iCurrentEmail,V.Local.sRecipientEmails.LBound,V.Local.sRecipientEmails.UBound,1)
+		F.Intrinsic.Control.If(V.Local.sRecipientEmails(V.Local.iCurrentEmail).Trim,<>,"")
+			F.Global.Messaging.QueueMessage(V.Caller.CompanyCode,V.Local.iUserID,V.Caller.Caller,V.Local.sSubject,V.Local.sSender,V.Local.sRecipientEmails(V.Local.iCurrentEmail).Trim,V.Local.sBody)
+		F.Intrinsic.Control.EndIf		
+	F.Intrinsic.Control.Next(V.Local.iCurrentEmail)
+	
+	F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError, "Sub", V.Ambient.CurrentSubroutine, "Error", V.Ambient.ErrorNumber, "ErrorDescription", V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdsend_click.End
+
+Program.Sub.unload.Start
+F.Intrinsic.Control.Try
+	
+	F.ODBC.Connection!con.Close
+	F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError, "Sub", V.Ambient.CurrentSubroutine, "Error", V.Ambient.ErrorNumber, "ErrorDescription", V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.unload.End
+
+Program.Sub.CatchError.Start
+F.Intrinsic.Control.Try
+	V.Local.sErrorMessage.Declare(String)
+	
+	F.Intrinsic.String.Build("Program: GCG_4505_EMR_UPSShipment.g2u{0}{0}Sub: {1}{0}Error: {2}{0}Error Description: {3}",V.Ambient.NewLine,V.Args.Sub,V.Args.Error,V.Args.ErrorDescription,V.Local.sErrorMessage)
+	F.Intrinsic.UI.Msgbox(V.Local.sErrorMessage,"Unhandled Error Occurred")
+	
+	F.Intrinsic.Control.If(V.Args.Sub.UCase,!=,"UNLOAD")
+		F.Intrinsic.Control.CallSub(UnLoad)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.End
+	F.Intrinsic.Control.EndIf
+	
+F.Intrinsic.Control.Catch
+	F.Intrinsic.UI.Msgbox("Fatal Error occurred in program GCG_4505_EMR_UPSShipment.g2u","Unhandled Error Occurred")
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry	
+Program.Sub.CatchError.End
+
+Program.Sub.Comments.Start
+${$0$}$ATG_EMR_Shipments.$}$CHANDANA$}$2/8/2012$}$False
+${$1$}$$}$$}$0$}$28530$}$Pre-Save Hook$}$2/8/2012 7:55:23 AM$}$(Program: ORD0FSGI; Screen: OES0FSN)
+
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$Quote Number: 3236
+Customer Name: EMR Corporation
+Contact Name: Lorraine Lively
+Title: Email upon Shipment
+
+Program.Sub.Comments.End
